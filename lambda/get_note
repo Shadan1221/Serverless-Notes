@@ -1,0 +1,34 @@
+# get_notes lambda_function.py
+import json, os
+import boto3
+from decimal import Decimal
+
+dynamodb = boto3.resource('dynamodb')
+TABLE = os.environ.get('DDB_TABLE')  # "Notes"
+
+def decimal_default(obj):
+    if isinstance(obj, Decimal):
+        # convert to int if whole number, else float
+        if obj % 1 == 0:
+            return int(obj)
+        return float(obj)
+    raise TypeError
+
+def lambda_handler(event, context):
+    table = dynamodb.Table(TABLE)
+    try:
+        res = table.scan()
+    except Exception as e:
+        print("DynamoDB scan error:", str(e))
+        return {
+            "statusCode": 500,
+            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+            "body": json.dumps({"message": "DynamoDB error", "error": str(e)})
+        }
+
+    items = res.get("Items", [])
+    return {
+        "statusCode": 200,
+        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+        "body": json.dumps(items, default=decimal_default)
+    }

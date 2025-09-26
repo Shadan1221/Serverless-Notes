@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notes (Serverless)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      margin: 0;
+      padding: 40px;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 20px 30px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 600px;
+    }
+    h1 {
+      margin-top: 0;
+      text-align: center;
+      color: #333;
+    }
+    .input-area {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .input-area input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+    .input-area button {
+      padding: 10px 18px;
+      background: #0078ff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .input-area button:hover {
+      background: #005fcc;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    li {
+      background: #f9f9f9;
+      border: 1px solid #eee;
+      padding: 12px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .note-text {
+      flex: 1;
+    }
+    .note-date {
+      font-size: 12px;
+      color: #666;
+      margin-left: 8px;
+    }
+    .delete-btn {
+      background: #ff4d4f;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      margin-left: 12px;
+      transition: 0.2s;
+    }
+    .delete-btn:hover {
+      background: #d9363e;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1> Notes</h1>
+    <div class="input-area">
+      <input id="noteInput" type="text" placeholder="Write a note..." />
+      <button onclick="addNote()">Add</button>
+    </div>
+    <ul id="notesList"></ul>
+  </div>
+
+  <script>
+    const API_BASE = "https://marcpg11aa.execute-api.us-east-1.amazonaws.com"; 
+
+    async function fetchNotes() {
+      try {
+        const res = await fetch(API_BASE + "/get_notes");
+        if (!res.ok) throw new Error("API error: " + res.status);
+        const data = await res.json();
+
+        const list = document.getElementById("notesList");
+        list.innerHTML = "";
+        data.forEach(note => {
+          const li = document.createElement("li");
+          const date = new Date(note.createdAt * 1000).toLocaleString();
+
+          const textSpan = document.createElement("span");
+          textSpan.className = "note-text";
+          textSpan.textContent = note.text;
+
+          const dateSpan = document.createElement("span");
+          dateSpan.className = "note-date";
+          dateSpan.textContent = date;
+
+          li.appendChild(textSpan);
+          li.appendChild(dateSpan);
+
+          // Delete button (works only if you add a delete_note endpoint)
+          const delBtn = document.createElement("button");
+          delBtn.className = "delete-btn";
+          delBtn.textContent = "Delete";
+          delBtn.onclick = () => deleteNote(note.noteId);
+          li.appendChild(delBtn);
+
+          list.appendChild(li);
+        });
+      } catch (err) {
+        console.error("Error fetching notes:", err);
+      }
+    }
+
+    async function addNote() {
+      const input = document.getElementById("noteInput");
+      const text = input.value.trim();
+      if (!text) return;
+
+      try {
+        await fetch(API_BASE + "/create_note", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ text })
+        });
+        input.value = "";
+        fetchNotes();
+      } catch (err) {
+        console.error("Error creating note:", err);
+      }
+    }
+
+    // Placeholder delete function
+    async function deleteNote(noteId) {
+      alert("Delete API not yet implemented. Would delete: " + noteId);
+      // Later, you’ll add:
+      // await fetch(API_BASE + "/delete_note", { method: "POST", body: JSON.stringify({ noteId }) })
+      fetchNotes();
+    }
+
+    // Load notes on startup
+    fetchNotes();
+  </script>
+</body>
+</html>

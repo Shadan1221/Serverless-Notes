@@ -1,0 +1,61 @@
+# create_note lambda_function.py
+import json, os, uuid, time
+import boto3
+
+dynamodb = boto3.resource('dynamodb')
+sns = boto3.client('sns')
+
+TABLE = os.environ.get('DDB_TABLE')   # e.g. "Notes"
+SNS_ARN = os.environ.get('SNS_TOPIC_ARN')  # optional
+
+def lambda_handler(event, context):
+    # Debug: see incoming event
+    print("DEBUG EVENT:", json.dumps(event))
+
+    # Parse body (API Gateway may send string)
+    body = event.get('body', '{}')
+    if isinstance(body, str):
+        try:
+            data = json.loads(body)
+        except Exception:
+            data = {}
+    else:
+        data = body
+
+    text = (data.get('text') or '').strip()
+    if not text:
+        return {
+            "statusCode": 400,
+            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+            "body": json.dumps({"message": "'text' is required"})
+        }
+
+    note_id = str(uuid.uuid4())
+    ts = int(time.time())
+    item = {"noteId": note_id, "text": text, "createdAt": ts}
+
+    try:
+        table = dynamodb.Table(TABLE)
+        table.put_item(Item=item)
+        print("PutItem success:", item)
+    except Exception as e:
+        print("DynamoDB error:", str(e))
+        return {
+            "statusCode": 500,
+            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+            "body": json.dumps({"message": "DynamoDB error", "error": str(e)})
+        }
+
+    # Optional: publish to SNS
+    if SNS_ARN:
+        try:
+            sns.publish(TopicArn=SNS_ARN, Message=json.dumps(item))
+            print("SNS publish success")
+        except Exception as e:
+            print("SNS publish error:", str(e))
+
+    return {
+        "statusCode": 201,
+        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+        "body": json.dumps(item)
+    }
